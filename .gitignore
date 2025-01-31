@@ -51,6 +51,6 @@ coverage/
 /client/sensor_pb2_grpc.py
 /client/sensor.proto
 
-
-
 # Ignore Flogo generated files
+
+pyvenv.cfg

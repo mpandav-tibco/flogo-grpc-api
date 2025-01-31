@@ -4,7 +4,7 @@ This demo showcases the power of TIBCO Flogo® Enterprise in building a gRPC ser
 
 ## Use Case
 
-Imagine a network of IoT sensors sending telemetry data (temperature, pressure, humidity) to a central hub. Our Flogo application acts as a gRPC server, receiving this data from the sensors. It then performs real-time calculations, checks for anomalies based on predefined thresholds, and triggers alerts if necessary. Additionally, it sends aggregated data to a time-series database (InfluxDB) for visualization and analysis.
+Imagine a network of IoT sensors sending telemetry data (temperature, pressure, humidity) to a central hub. Our Flogo application acts as a gRPC server, receiving this data from the sensors. It then performs data storage and near real-time calculations, checks for anomalies based on predefined thresholds, and triggers alerts if necessary. Additionally, it sends aggregated data to a time-series database (InfluxDB) for visualization and analysis.
 
 ## Architecture
 
@@ -41,7 +41,7 @@ The demo involves the following components:
 The Flogo app performs the following tasks:
 
 * **Receive sensor data:** Receives `SensorData` messages via gRPC.
-* **Extract data:** Extracts `temperature`, `pressure`, and `humidity` values.
+* **Store  data:** Store Data `temperature`, `pressure`, and `humidity` values to postgresql DB
 * **Calculate metrics:** Calculates metrics like average temperature over a period.
 * **Check for anomalies:** Compares sensor readings against predefined thresholds.
 * **Trigger alerts:** Sends alerts (e.g., via email) if anomalies are detected.
@@ -63,7 +63,7 @@ The Flogo app performs the following tasks:
 
 ## Explore the Code
 
-* **Flogo app:** [flogo-app.json]
+* **Flogo app:** [telemetry-api.flogo]
 * **Sensor data simulation script:** [simulate_sensor_data.py]
 
 ## Learn More

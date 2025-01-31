@@ -560,7 +560,7 @@
     {
       "name": "PostgreSQL.k8s.Password",
       "type": "string",
-      "value": "SECRET:tWCdL1U3PlXfFOrW6X7VA/vJYU4Ootdx"
+      "value": "SECRET:tx3133Db5Hr1KQl1TcGsr2Q1GVDlhZ1T"
     },
     {
       "name": "PostgreSQL.k8s.Maximum_Open_Connections",

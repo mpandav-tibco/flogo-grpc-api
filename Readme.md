@@ -12,7 +12,7 @@ The demo involves the following components:
 
 * **IoT Sensors:** Simulate IoT sensors sending telemetry data via gRPC.
 * **Flogo App:** Acts as a gRPC server, processes sensor data, checks for anomalies, triggers alerts, and sends data to InfluxDB.
-* **InfluxDB:** A time-series database to store sensor data and calculated metrics.
+* **InfluxDB (Optional) :** A time-series database to store sensor data and calculated metrics.
 * **Grafana (Optional):** A visualization tool to monitor and analyze the sensor data in real-time.
 
 ## Implementation

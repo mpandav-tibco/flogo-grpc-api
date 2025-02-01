@@ -10,7 +10,7 @@ CREATE TABLE sensor_data (
 );
 
 
--- Description: Tthe SQL statements to insert data into the table
+-- Description: Tthe SQL statements to insert data into the table in the database
 INSERT INTO sensor_data (sensor_id, temperature, pressure, humidity, timestamp)
     VALUES (?sensor_id, ?temperature, ?pressure, ?humidity, ?timestamp);
 

@@ -22,10 +22,10 @@
         }
       }
     },
-    "New_flow:Tester": {
+    "onStartup:Tester": {
       "name": "Tester",
-      "flowId": "flow:New_flow",
-      "flowName": "New_flow",
+      "flowId": "flow:onStartup",
+      "flowName": "onStartup",
       "disabled": false
     }
   },

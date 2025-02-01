@@ -46,9 +46,6 @@ coverage/
 /test-results/
 
 .venv
-/client/__pycache__
-/client/sensor_pb2.py
-/client/sensor_pb2_grpc.py
 /client/sensor.proto
 
 # Ignore Flogo generated files

@@ -6,11 +6,13 @@
     "github.com/project-flogo/flow/activity/subflow",
     "github.com/tibco/wi-postgres/src/app/PostgreSQL/activity/insert",
     "github.com/tibco/wi-postgres/src/app/PostgreSQL/activity/query",
+    "github.com/tibco/flogo-general/src/app/General/activity/sendmail",
     "github.com/project-flogo/grpc/trigger/grpc",
     "github.com/tibco/flogo-general/src/app/General/trigger/timer",
     "github.com/project-flogo/contrib/function/string",
     "github.com/project-flogo/contrib/function/array",
     "github.com/project-flogo/contrib/function/coerce",
+    "git.tibco.com/git/product/ipaas/wi-contrib.git/function/boolean",
     "github.com/tibco/wi-postgres/src/app/PostgreSQL/connector/connection"
   ],
   "name": "Sensor_Telemetry_API",
@@ -387,18 +389,48 @@
           },
           {
             "id": 3,
+            "from": "LogHighTempAlert",
+            "to": "SendMail_HighTemp",
+            "type": "expression",
+            "label": "is_email_true",
+            "value": "$property[\"EMAIL.isEmail\"]==boolean.true()"
+          },
+          {
+            "id": 4,
+            "from": "LogHighTempAlert",
+            "to": "DoNothing",
+            "type": "exprOtherwise",
+            "label": "otherwise"
+          },
+          {
+            "id": 5,
             "from": "fetch_avg_temp",
             "to": "LogAvgTemp",
             "type": "exprOtherwise",
             "label": "fetch_avg_temp to LogMessage"
           },
           {
-            "id": 4,
+            "id": 6,
             "from": "fetch_avg_temp",
             "to": "LogLowTempAlert",
             "type": "expression",
             "label": "low_temp_alert",
             "value": "$activity[fetch_avg_temp].Output.records[0].avg <=5"
+          },
+          {
+            "id": 7,
+            "from": "LogLowTempAlert",
+            "to": "SendMail_LowTemp",
+            "type": "expression",
+            "label": "is_email_true",
+            "value": "$property[\"EMAIL.isEmail\"]"
+          },
+          {
+            "id": 8,
+            "from": "LogLowTempAlert",
+            "to": "DoNothing",
+            "type": "exprOtherwise",
+            "label": "otherwise"
           }
         ],
         "tasks": [
@@ -475,6 +507,53 @@
             }
           },
           {
+            "id": "SendMail_HighTemp",
+            "name": "SendMail_HighTemp",
+            "description": "Simple Send Mail Activity",
+            "activity": {
+              "ref": "#sendmail",
+              "input": {
+                "Server": "=$property[\"EMAIL.SERVER\"]",
+                "Port": "=$property[\"EMAIL.PORT\"]",
+                "Username": "localhost",
+                "Password": "SECRET:VwtsL/0zuuR0PJlJoP+rPEc=",
+                "Connection Security": "NONE",
+                "serverCertificate": "",
+                "sender": "",
+                "recipients": "",
+                "cc_recipients": "",
+                "bcc_recipients": "",
+                "reply_to": "",
+                "subject": "",
+                "message": ""
+              },
+              "schemas": {
+                "input": {
+                  "attachments": {
+                    "type": "json",
+                    "value": "{\"$schema\":\"http://json-schema.org/draft-07/schema#\",\"items\":{\"properties\":{\"file\":{\"type\":\"string\"},\"filename\":{\"type\":\"string\"},\"base64EncodedContents\":{\"type\":\"boolean\"}},\"required\":[\"file\"],\"type\":\"object\"},\"type\":\"array\"}",
+                    "fe_metadata": "{\"$schema\":\"http://json-schema.org/draft-07/schema#\",\"items\":{\"properties\":{\"file\":{\"type\":\"string\"},\"filename\":{\"type\":\"string\"},\"base64EncodedContents\":{\"type\":\"boolean\"}},\"required\":[\"file\"],\"type\":\"object\"},\"type\":\"array\"}",
+                    "feSchemaMap": {}
+                  }
+                }
+              }
+            }
+          },
+          {
+            "id": "DoNothing",
+            "name": "DoNothing",
+            "description": "Simple Log Message Activity",
+            "activity": {
+              "ref": "#log",
+              "input": {
+                "Log Level": "INFO",
+                "flowInfo": false,
+                "message": "####### ANOMALY DETECTED #########",
+                "logLevel": ""
+              }
+            }
+          },
+          {
             "id": "LogAvgTemp",
             "name": "LogAvgTemp",
             "description": "Simple Log Message Activity",
@@ -501,9 +580,42 @@
                 "logLevel": ""
               }
             }
+          },
+          {
+            "id": "SendMail_LowTemp",
+            "name": "SendMail_LowTemp",
+            "description": "Simple Send Mail Activity",
+            "activity": {
+              "ref": "#sendmail",
+              "input": {
+                "Server": "=$property[\"EMAIL.SERVER\"]",
+                "Port": "=$property[\"EMAIL.PORT\"]",
+                "Username": "=$property[\"EMAIL.USER\"]",
+                "Password": "=$property[\"EMAIL.PASSWORD\"]",
+                "Connection Security": "TLS",
+                "serverCertificate": "",
+                "sender": "",
+                "recipients": "",
+                "cc_recipients": "",
+                "bcc_recipients": "",
+                "reply_to": "",
+                "subject": "",
+                "message": ""
+              },
+              "schemas": {
+                "input": {
+                  "attachments": {
+                    "type": "json",
+                    "value": "{\"$schema\":\"http://json-schema.org/draft-07/schema#\",\"items\":{\"properties\":{\"file\":{\"type\":\"string\"},\"filename\":{\"type\":\"string\"},\"base64EncodedContents\":{\"type\":\"boolean\"}},\"required\":[\"file\"],\"type\":\"object\"},\"type\":\"array\"}",
+                    "fe_metadata": "{\"$schema\":\"http://json-schema.org/draft-07/schema#\",\"items\":{\"properties\":{\"file\":{\"type\":\"string\"},\"filename\":{\"type\":\"string\"},\"base64EncodedContents\":{\"type\":\"boolean\"}},\"required\":[\"file\"],\"type\":\"object\"},\"type\":\"array\"}",
+                    "feSchemaMap": {}
+                  }
+                }
+              }
+            }
           }
         ],
-        "fe_metadata": "eyJTdGFydEFjdGl2aXR5Ijp7IngiOjcxLCJ5Ijo5M30sImZldGNoX2F2Z190ZW1wIjp7IngiOjI3NywieSI6ODh9LCJMb2dIaWdoVGVtcEFsZXJ0Ijp7IngiOjUzMiwieSI6ODd9LCJMb2dBdmdUZW1wIjp7IngiOjUzNiwieSI6MzYxfSwiTG9nTG93VGVtcEFsZXJ0Ijp7IngiOjUzOCwieSI6MjIyfX0=",
+        "fe_metadata": "eyJTdGFydEFjdGl2aXR5Ijp7IngiOjcxLCJ5Ijo5M30sImZldGNoX2F2Z190ZW1wIjp7IngiOjIwNCwieSI6ODZ9LCJMb2dIaWdoVGVtcEFsZXJ0Ijp7IngiOjQ0NiwieSI6ODZ9LCJTZW5kTWFpbF9IaWdoVGVtcCI6eyJ4Ijo2ODMsInkiOjg4fSwiRG9Ob3RoaW5nIjp7IngiOjY0MSwieSI6MjA2fSwiTG9nQXZnVGVtcCI6eyJ4Ijo0NDQsInkiOjQ0NX0sIkxvZ0xvd1RlbXBBbGVydCI6eyJ4Ijo0NDUsInkiOjMzMH0sIlNlbmRNYWlsX0xvd1RlbXAiOnsieCI6NjgzLCJ5IjozMjZ9fQ==",
         "metadata": {
           "input": [],
           "output": [],
@@ -560,7 +672,7 @@
     {
       "name": "PostgreSQL.k8s.Password",
       "type": "string",
-      "value": "SECRET:tx3133Db5Hr1KQl1TcGsr2Q1GVDlhZ1T"
+      "value": "SECRET:TMOjuUFui0p61Byk3S3bGM89nK4C4CtI"
     },
     {
       "name": "PostgreSQL.k8s.Maximum_Open_Connections",
@@ -591,6 +703,31 @@
       "name": "PostgreSQL.k8s.Connection_Timeout",
       "type": "float64",
       "value": 20
+    },
+    {
+      "name": "EMAIL.SERVER",
+      "type": "string",
+      "value": "localhost"
+    },
+    {
+      "name": "EMAIL.PORT",
+      "type": "float64",
+      "value": 1025
+    },
+    {
+      "name": "EMAIL.USER",
+      "type": "string",
+      "value": "A"
+    },
+    {
+      "name": "EMAIL.PASSWORD",
+      "type": "string",
+      "value": "SECRET:fj6CWQr7mcn9ISjP7Wb2sjU="
+    },
+    {
+      "name": "EMAIL.isEmail",
+      "type": "boolean",
+      "value": false
     }
   ],
   "schemas": {

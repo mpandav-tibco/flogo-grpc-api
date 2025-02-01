@@ -46,8 +46,11 @@ coverage/
 /test-results/
 
 .venv
+/client/__pycache__
+
 /client/sensor.proto
 
+/bin/*
 # Ignore Flogo generated files
 
 pyvenv.cfg

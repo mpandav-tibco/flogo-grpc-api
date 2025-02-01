@@ -50,7 +50,6 @@ coverage/
 
 /client/sensor.proto
 
-/bin/*
 # Ignore Flogo generated files
 
 pyvenv.cfg

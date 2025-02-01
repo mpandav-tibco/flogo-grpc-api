@@ -7,7 +7,7 @@ import time
 def generate_sensor_data():
     return sensor_pb2.SensorData(
         sensor_id="sensor-123",
-        temperature=random.uniform(20, 30),
+        temperature=random.uniform(20, 35),
         pressure=random.uniform(1000, 1100),
         humidity=random.uniform(40, 60),
         timestamp=time.strftime("%Y-%m-%d %H:%M:%S")

@@ -2,16 +2,19 @@
   "imports": [
     "github.com/project-flogo/flow",
     "github.com/project-flogo/contrib/activity/noop",
-    "github.com/tibco/flogo-general/src/app/General/activity/log",
     "github.com/project-flogo/flow/activity/subflow",
     "github.com/tibco/wi-postgres/src/app/PostgreSQL/activity/insert",
     "github.com/tibco/wi-postgres/src/app/PostgreSQL/activity/query",
+    "github.com/tibco/flogo-general/src/app/General/activity/log",
     "github.com/tibco/flogo-general/src/app/General/activity/sendmail",
+    "github.com/tibco/wi-postgres/src/app/PostgreSQL/activity/delete",
     "github.com/project-flogo/grpc/trigger/grpc",
     "github.com/tibco/flogo-general/src/app/General/trigger/timer",
-    "github.com/project-flogo/contrib/function/string",
+    "github.com/tibco/flogo-general/src/app/General/trigger/startuphook",
     "github.com/project-flogo/contrib/function/array",
     "github.com/project-flogo/contrib/function/coerce",
+    "github.com/project-flogo/contrib/function/string",
+    "github.com/project-flogo/contrib/function/datetime",
     "git.tibco.com/git/product/ipaas/wi-contrib.git/function/boolean",
     "github.com/tibco/wi-postgres/src/app/PostgreSQL/connector/connection"
   ],
@@ -109,6 +112,25 @@
           "name": "Calculate_Avg_Temperatur"
         }
       ]
+    },
+    {
+      "ref": "#startuphook",
+      "name": "tibco-appstartup",
+      "description": "This trigger allows you to execute flows before other triggers in the application are started. This is useful in initializing application specific tasks.",
+      "settings": {},
+      "id": "App Startup Trigger",
+      "handlers": [
+        {
+          "description": "Clean up the Database Table",
+          "action": {
+            "ref": "github.com/project-flogo/flow",
+            "settings": {
+              "flowURI": "res://flow:onStartup"
+            }
+          },
+          "name": "onStartup"
+        }
+      ]
     }
   ],
   "resources": [
@@ -121,23 +143,9 @@
           {
             "id": 1,
             "from": "StartActivity",
-            "to": "LogSensorData",
-            "type": "label",
-            "label": "StartActivity to LogMessage"
-          },
-          {
-            "id": 2,
-            "from": "LogSensorData",
             "to": "InsertToDB",
             "type": "label",
-            "label": "LogMessage to StartaSubFlow"
-          },
-          {
-            "id": 3,
-            "from": "InsertToDB",
-            "to": "StartaSubFlow",
-            "type": "label",
-            "label": "InsertToDB to StartaSubFlow"
+            "label": "StartActivity to InsertToDB"
           }
         ],
         "tasks": [
@@ -147,20 +155,6 @@
             "description": "NoOp Activity",
             "activity": {
               "ref": "#noop"
-            }
-          },
-          {
-            "id": "LogSensorData",
-            "name": "LogSensorData",
-            "description": "Simple Log Message Activity",
-            "activity": {
-              "ref": "#log",
-              "input": {
-                "Log Level": "INFO",
-                "flowInfo": false,
-                "message": "=string.concat(\"###### Sensor : \", $flow.params.sensor_id, \" Telemetry Data : \", string.tostring($flow.params))",
-                "logLevel": ""
-              }
             }
           },
           {
@@ -191,21 +185,9 @@
                 }
               }
             }
-          },
-          {
-            "id": "StartaSubFlow",
-            "name": "StartaSubFlow",
-            "description": "Simple SubFlow Activity",
-            "activity": {
-              "ref": "#subflow",
-              "settings": {
-                "flowURI": "res://flow:Send_To_InFluxDB",
-                "detached": false
-              }
-            }
           }
         ],
-        "fe_metadata": "eyJTdGFydEFjdGl2aXR5Ijp7IngiOjEwMCwieSI6MTAwfSwiTG9nU2Vuc29yRGF0YSI6eyJ4IjoyMjUsInkiOjg1fSwiSW5zZXJ0VG9EQiI6eyJ4Ijo0NDIsInkiOjg4fSwiU3RhcnRhU3ViRmxvdyI6eyJ4Ijo0NjIsInkiOjI3Mn19",
+        "fe_metadata": "eyJTdGFydEFjdGl2aXR5Ijp7IngiOjAsInkiOjE0fSwiSW5zZXJ0VG9EQiI6eyJ4IjoxOTUsInkiOjd9fQ==",
         "metadata": {
           "input": [
             {
@@ -314,7 +296,7 @@
                   }
                 ],
                 "RuntimeQuery": "",
-                "State": "bc7a5e44-9b00-4ee6-93cc-f9c2e3ea943cINSERT INTO sensor_data (sensor_id, temperature, pressure, humidity, timestamp)\n    VALUES (?sensor_id, ?temperature, ?pressure, ?humidity, ?timestamp);",
+                "State": "a4c998c5-4b6f-4c0c-9a87-e9e09ca55944INSERT INTO sensor_data (sensor_id, temperature, pressure, humidity, timestamp)\n    VALUES (?sensor_id, ?temperature, ?pressure, ?humidity, ?timestamp);",
                 "input": {
                   "mapping": {
                     "values": [
@@ -385,7 +367,7 @@
             "to": "LogHighTempAlert",
             "type": "expression",
             "label": "high_temp_alert",
-            "value": "$activity[fetch_avg_temp].Output.records[0].avg > 30"
+            "value": "$activity[fetch_avg_temp].Output.records[0].avg > 25"
           },
           {
             "id": 3,
@@ -458,7 +440,7 @@
                 "Connection": "conn://d06566b8-8256-46c2-b205-8b7bbe840db8",
                 "QueryName": "",
                 "Schema": "public",
-                "Query": "SELECT avg(temperature)\nFROM sensor_data\nWHERE timestamp >= now() - interval '1 minutes';",
+                "Query": "SELECT avg(temperature), sensor_id\nFROM sensor_data\nWHERE timestamp >= now() - interval '1 minutes'\nGROUP BY sensor_id;",
                 "manualmode": false,
                 "Fields": [
                   {
@@ -467,10 +449,17 @@
                     "Selected": true,
                     "Parameter": false,
                     "isEditable": false
+                  },
+                  {
+                    "FieldName": "sensor_id",
+                    "Type": "VARCHAR",
+                    "Selected": true,
+                    "Parameter": false,
+                    "isEditable": false
                   }
                 ],
                 "RuntimeQuery": "",
-                "State": "f33cc166-b311-4cd3-bbd9-2cf51b045fe5SELECT avg(temperature)\nFROM sensor_data\nWHERE timestamp >= now() - interval '1 minutes';"
+                "State": "401773b1-b1fa-4ecc-8c49-4a53a9e4404bSELECT avg(temperature), sensor_id\nFROM sensor_data\nWHERE timestamp >= now() - interval '1 minutes'\nGROUP BY sensor_id;"
               },
               "schemas": {
                 "input": {
@@ -484,8 +473,8 @@
                 "output": {
                   "Output": {
                     "type": "json",
-                    "value": "{\"$schema\":\"http://json-schema.org/draft-04/schema#\",\"type\":\"object\",\"definitions\":{},\"properties\":{\"records\":{\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{\"avg\":{\"type\":\"number\"}}}}}}",
-                    "fe_metadata": "{\"$schema\":\"http://json-schema.org/draft-04/schema#\",\"type\":\"object\",\"definitions\":{},\"properties\":{\"records\":{\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{\"avg\":{\"type\":\"number\"}}}}}}",
+                    "value": "{\"$schema\":\"http://json-schema.org/draft-04/schema#\",\"type\":\"object\",\"definitions\":{},\"properties\":{\"records\":{\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{\"avg\":{\"type\":\"number\"},\"sensor_id\":{\"type\":\"string\"}}}}}}",
+                    "fe_metadata": "{\"$schema\":\"http://json-schema.org/draft-04/schema#\",\"type\":\"object\",\"definitions\":{},\"properties\":{\"records\":{\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{\"avg\":{\"type\":\"number\"},\"sensor_id\":{\"type\":\"string\"}}}}}}",
                     "feSchemaMap": {}
                   }
                 }
@@ -501,7 +490,7 @@
               "input": {
                 "Log Level": "INFO",
                 "flowInfo": false,
-                "message": "=string.concat(\"######## HIGH TEMPERATURE ALERT ######## \", \"NORMAL AVERAGE TEMPERATURE FOR 5 min : HIGH - \", string.tostring($activity[fetch_avg_temp].Output.records[0].avg))",
+                "message": "=string.concat(\"######## HIGH TEMPERATURE ALERT ######## \", \" AVERAGE TEMPERATURE FOR 5 min : HIGH - \", string.tostring($activity[fetch_avg_temp].Output.records[0].avg))",
                 "logLevel": ""
               }
             }
@@ -515,17 +504,18 @@
               "input": {
                 "Server": "=$property[\"EMAIL.SERVER\"]",
                 "Port": "=$property[\"EMAIL.PORT\"]",
-                "Username": "localhost",
-                "Password": "SECRET:VwtsL/0zuuR0PJlJoP+rPEc=",
+                "Username": "",
+                "Password": "",
                 "Connection Security": "NONE",
                 "serverCertificate": "",
-                "sender": "",
-                "recipients": "",
+                "message_content_type": "text/html",
+                "sender": "alerts@demo.com",
+                "recipients": "admin@demo.com",
                 "cc_recipients": "",
                 "bcc_recipients": "",
-                "reply_to": "",
-                "subject": "",
-                "message": ""
+                "reply_to": "DoNotReply@demo.com",
+                "subject": "=string.concat(\"High Temperature Alert - \",$activity[fetch_avg_temp].Output.records[0].sensor_id)",
+                "message": "=string.concat('<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><title>HIGH Temperature Alert</title></head><body><h1>HighTemperature Alert</h1><p>This email is to notify you of a high-temperature alert triggered by sensor <b>', $activity[fetch_avg_temp].Output.records[0].sensor_id, '</b>.</p><h2>Sensor Details:</h2><ul><li><b>Sensor ID:</b>',$activity[fetch_avg_temp].Output.records[0].sensor_id,  '</li><li><b>Temperature:</b>', $activity[fetch_avg_temp].Output.records[0].avg, '</li><li><b>Timestamp:</b>', datetime.currentDatetime(), '</li></ul><p>Please investigate the situation and take any necessary action.</p></body></html>')"
               },
               "schemas": {
                 "input": {
@@ -590,17 +580,18 @@
               "input": {
                 "Server": "=$property[\"EMAIL.SERVER\"]",
                 "Port": "=$property[\"EMAIL.PORT\"]",
-                "Username": "=$property[\"EMAIL.USER\"]",
-                "Password": "=$property[\"EMAIL.PASSWORD\"]",
-                "Connection Security": "TLS",
+                "Username": "",
+                "Password": "",
+                "Connection Security": "NONE",
                 "serverCertificate": "",
-                "sender": "",
-                "recipients": "",
+                "message_content_type": "text/html",
+                "sender": "alerts@demo.com",
+                "recipients": "admin@demo.com",
                 "cc_recipients": "",
                 "bcc_recipients": "",
-                "reply_to": "",
-                "subject": "",
-                "message": ""
+                "reply_to": "DoNotReply@demo.com",
+                "subject": "=string.concat(\" Low Temperature Alert - \",$activity[fetch_avg_temp].Output.records[0].sensor_id)",
+                "message": "=string.concat('<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><title>LOW Temperature Alert</title></head><body><h1>LOW Temperature Alert</h1><p>This email is to notify you of a low-temperature alert triggered by sensor <b>', $activity[fetch_avg_temp].Output.records[0].sensor_id, '</b>.</p><h2>Sensor Details:</h2><ul><li><b>Sensor ID:</b>',$activity[fetch_avg_temp].Output.records[0].sensor_id,  '</li><li><b>Temperature:</b>', $activity[fetch_avg_temp].Output.records[0].avg, '</li><li><b>Timestamp:</b>', datetime.currentDatetime(), '</li></ul><p>Please investigate the situation and take any necessary action.</p></body></html>')"
               },
               "schemas": {
                 "input": {
@@ -615,7 +606,7 @@
             }
           }
         ],
-        "fe_metadata": "eyJTdGFydEFjdGl2aXR5Ijp7IngiOjcxLCJ5Ijo5M30sImZldGNoX2F2Z190ZW1wIjp7IngiOjIwNCwieSI6ODZ9LCJMb2dIaWdoVGVtcEFsZXJ0Ijp7IngiOjQ0NiwieSI6ODZ9LCJTZW5kTWFpbF9IaWdoVGVtcCI6eyJ4Ijo2ODMsInkiOjg4fSwiRG9Ob3RoaW5nIjp7IngiOjY0MSwieSI6MjA2fSwiTG9nQXZnVGVtcCI6eyJ4Ijo0NDQsInkiOjQ0NX0sIkxvZ0xvd1RlbXBBbGVydCI6eyJ4Ijo0NDUsInkiOjMzMH0sIlNlbmRNYWlsX0xvd1RlbXAiOnsieCI6NjgzLCJ5IjozMjZ9fQ==",
+        "fe_metadata": "eyJTdGFydEFjdGl2aXR5Ijp7IngiOjcxLCJ5Ijo5M30sImZldGNoX2F2Z190ZW1wIjp7IngiOjIwNCwieSI6ODd9LCJMb2dIaWdoVGVtcEFsZXJ0Ijp7IngiOjQ0NSwieSI6ODh9LCJTZW5kTWFpbF9IaWdoVGVtcCI6eyJ4Ijo3MjYsInkiOjg4fSwiRG9Ob3RoaW5nIjp7IngiOjcxNSwieSI6MjA2fSwiTG9nQXZnVGVtcCI6eyJ4Ijo0NDQsInkiOjQ0NX0sIkxvZ0xvd1RlbXBBbGVydCI6eyJ4Ijo0NDUsInkiOjMzMH0sIlNlbmRNYWlsX0xvd1RlbXAiOnsieCI6NzMwLCJ5IjozMzB9fQ==",
         "metadata": {
           "input": [],
           "output": [],
@@ -640,6 +631,101 @@
           }
         ],
         "fe_metadata": "eyJTdGFydEFjdGl2aXR5Ijp7IngiOjEwMCwieSI6MTAwfX0=",
+        "metadata": {
+          "input": [],
+          "output": [],
+          "fe_metadata": {}
+        }
+      }
+    },
+    {
+      "id": "flow:onStartup",
+      "data": {
+        "name": "onStartup",
+        "description": "Clean up the Database Table",
+        "links": [
+          {
+            "id": 1,
+            "from": "StartActivity",
+            "to": "PostgreSQLDelete",
+            "type": "label",
+            "label": "StartActivity to PostgreSQLDelete"
+          },
+          {
+            "id": 2,
+            "from": "PostgreSQLDelete",
+            "to": "LogMessage",
+            "type": "label",
+            "label": "PostgreSQLDelete to LogMessage"
+          }
+        ],
+        "tasks": [
+          {
+            "id": "StartActivity",
+            "name": "StartActivity",
+            "description": "NoOp Activity",
+            "activity": {
+              "ref": "#noop"
+            }
+          },
+          {
+            "id": "PostgreSQLDelete",
+            "name": "PostgreSQLDelete",
+            "description": "This activity executes delete on a PostgreSQL database",
+            "settings": {
+              "retryOnError": {
+                "count": 0,
+                "interval": 0
+              }
+            },
+            "activity": {
+              "ref": "#delete",
+              "input": {
+                "Connection": "conn://d06566b8-8256-46c2-b205-8b7bbe840db8",
+                "QueryName": "",
+                "Schema": "public",
+                "Query": "TRUNCATE TABLE sensor_data;",
+                "manualmode": false,
+                "RuntimeQuery": "",
+                "Fields": [],
+                "State": "133166f2-2b43-46ea-a5b1-7e895a20350fTRUNCATE TABLE sensor_data;"
+              },
+              "schemas": {
+                "input": {
+                  "input": {
+                    "type": "json",
+                    "value": "{\"$schema\":\"http://json-schema.org/draft-04/schema#\",\"type\":\"object\",\"definitions\":{},\"properties\":{\"parameters\":{\"type\":\"object\",\"properties\":{}}}}",
+                    "fe_metadata": "{\"$schema\":\"http://json-schema.org/draft-04/schema#\",\"type\":\"object\",\"definitions\":{},\"properties\":{\"parameters\":{\"type\":\"object\",\"properties\":{}}}}",
+                    "feSchemaMap": {}
+                  }
+                },
+                "output": {
+                  "Output": {
+                    "type": "json",
+                    "value": "{\"type\":\"object\",\"properties\":{\"rowsAffected\":{\"type\":\"int\"}}}",
+                    "fe_metadata": "{\"type\":\"object\",\"properties\":{\"rowsAffected\":{\"type\":\"int\"}}}",
+                    "feSchemaMap": {}
+                  }
+                }
+              }
+            }
+          },
+          {
+            "id": "LogMessage",
+            "name": "LogMessage",
+            "description": "Simple Log Message Activity",
+            "activity": {
+              "ref": "#log",
+              "input": {
+                "Log Level": "INFO",
+                "flowInfo": false,
+                "message": "##### AVERAGE THRESHOLD TEMPERATURE : HIGH = 30 AND LOW = 5 ######",
+                "logLevel": ""
+              }
+            }
+          }
+        ],
+        "fe_metadata": "eyJTdGFydEFjdGl2aXR5Ijp7IngiOjEwMCwieSI6MTAwfSwiUG9zdGdyZVNRTERlbGV0ZSI6eyJ4IjoyNjYsInkiOjg3fSwiTG9nTWVzc2FnZSI6eyJ4Ijo1MDIsInkiOjg5fX0=",
         "metadata": {
           "input": [],
           "output": [],
@@ -672,7 +758,7 @@
     {
       "name": "PostgreSQL.k8s.Password",
       "type": "string",
-      "value": "SECRET:TMOjuUFui0p61Byk3S3bGM89nK4C4CtI"
+      "value": "SECRET:RO8FrVLizthVncs637KDMzTuW1jlR/6M"
     },
     {
       "name": "PostgreSQL.k8s.Maximum_Open_Connections",
@@ -722,12 +808,12 @@
     {
       "name": "EMAIL.PASSWORD",
       "type": "string",
-      "value": "SECRET:fj6CWQr7mcn9ISjP7Wb2sjU="
+      "value": "SECRET:J4kgh3CHmKJis8QzIKQ6/Mk="
     },
     {
       "name": "EMAIL.isEmail",
       "type": "boolean",
-      "value": false
+      "value": true
     }
   ],
   "schemas": {
@@ -767,7 +853,7 @@
       }
     }
   },
-  "contrib": "W3sicmVmIjoiZ2l0aHViLmNvbS90aWJjby9mbG9nby1nZW5lcmFsL3NyYy9hcHAvR2VuZXJhbCIsImlkIjoiR2VuZXJhbCIsInZlcnNpb24iOiIxLjYuMiIsInRhZyI6IjEuNi4yLWIwMiIsIm5hbWUiOiJHZW5lcmFsIiwiczNsb2NhdGlvbiI6IlRpYmNvL0dlbmVyYWwiLCJpc1VzZXJFeHRlbnNpb24iOmZhbHNlfSx7InJlZiI6ImdpdGh1Yi5jb20vdGliY28vd2ktcG9zdGdyZXMvc3JjL2FwcC9Qb3N0Z3JlU1FMIiwiaWQiOiJQb3N0Z3JlU1FMIiwidmVyc2lvbiI6IjIuNy4xIiwidGFnIjoiMi43LjEtYjAxIiwibmFtZSI6IlBvc3RncmVTUUwiLCJzM2xvY2F0aW9uIjoiVGliY28vUG9zdGdyZVNRTCIsImlzVXNlckV4dGVuc2lvbiI6ZmFsc2V9XQ==",
+  "contrib": "W3sicmVmIjoiZ2l0aHViLmNvbS90aWJjby93aS1wb3N0Z3Jlcy9zcmMvYXBwL1Bvc3RncmVTUUwiLCJpZCI6IlBvc3RncmVTUUwiLCJ2ZXJzaW9uIjoiMi43LjEiLCJ0YWciOiIyLjcuMS1iMDEiLCJuYW1lIjoiUG9zdGdyZVNRTCIsInMzbG9jYXRpb24iOiJUaWJjby9Qb3N0Z3JlU1FMIiwiaXNVc2VyRXh0ZW5zaW9uIjpmYWxzZX0seyJyZWYiOiJnaXRodWIuY29tL3RpYmNvL2Zsb2dvLWdlbmVyYWwvc3JjL2FwcC9HZW5lcmFsIiwiaWQiOiJHZW5lcmFsIiwidmVyc2lvbiI6IjEuNi4yIiwidGFnIjoiMS42LjItYjAyIiwibmFtZSI6IkdlbmVyYWwiLCJzM2xvY2F0aW9uIjoiVGliY28vR2VuZXJhbCIsImlzVXNlckV4dGVuc2lvbiI6ZmFsc2V9XQ==",
   "metadata": {
     "endpoints": [
       {

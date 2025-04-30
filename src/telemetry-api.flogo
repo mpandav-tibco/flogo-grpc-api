@@ -29,13 +29,11 @@
       "description": "gRPC Trigger",
       "settings": {
         "port": 9090,
-        "protoName": "sensor.proto",
-        "protoFile": {
-          "filename": "sensor.proto",
-          "content": "data:application/octet-stream;base64,c3ludGF4ID0gInByb3RvMyI7CgpwYWNrYWdlIHNlbnNvcnM7CgptZXNzYWdlIFNlbnNvckRhdGEgewogIHN0cmluZyBzZW5zb3JfaWQgPSAxOwogIGRvdWJsZSB0ZW1wZXJhdHVyZSA9IDI7CiAgZG91YmxlIHByZXNzdXJlID0gMzsKICBkb3VibGUgaHVtaWRpdHkgPSA0OwogIHN0cmluZyB0aW1lc3RhbXAgPSA1Owp9CgptZXNzYWdlIEVtcHR5IHt9CgpzZXJ2aWNlIFNlbnNvclNlcnZpY2UgewogIHJwYyBTZW5kVGVsZW1ldHJ5RGF0YSAoU2Vuc29yRGF0YSkgcmV0dXJucyAoRW1wdHkpIHt9Cn0="
-        },
+        "protoName": "sensor",
+        "protoFile": "spec://adae8ef6",
         "enableTLS": false,
         "enableMTLS": false,
+        "rootCA": "",
         "serverCert": "",
         "serverKey": ""
       },
@@ -135,7 +133,7 @@
           {
             "id": 3,
             "from": "InsertToDB",
-            "to": "StartaSubFlow",
+            "to": "sendToInfluxDB",
             "type": "label",
             "label": "InsertToDB to StartaSubFlow"
           }
@@ -199,8 +197,8 @@
             }
           },
           {
-            "id": "StartaSubFlow",
-            "name": "StartaSubFlow",
+            "id": "sendToInfluxDB",
+            "name": "sendToInfluxDB",
             "description": "Simple SubFlow Activity",
             "settings": {
               "retryOnError": {
@@ -234,7 +232,7 @@
             }
           }
         ],
-        "fe_metadata": "eyJTdGFydEFjdGl2aXR5Ijp7IngiOjEwMCwieSI6MTAwfSwiTG9nU2Vuc29yRGF0YSI6eyJ4IjoyMjUsInkiOjg1fSwiSW5zZXJ0VG9EQiI6eyJ4Ijo0NDIsInkiOjg4fSwiU3RhcnRhU3ViRmxvdyI6eyJ4Ijo0NjIsInkiOjI3Mn19",
+        "fe_metadata": "eyJTdGFydEFjdGl2aXR5Ijp7IngiOjEwMCwieSI6MTAwfSwiTG9nU2Vuc29yRGF0YSI6eyJ4IjoyMjUsInkiOjg1fSwiSW5zZXJ0VG9EQiI6eyJ4Ijo0NDIsInkiOjg4fSwic2VuZFRvSW5mbHV4REIiOnsieCI6NjgyLCJ5Ijo4OH19",
         "metadata": {
           "input": [
             {
@@ -343,7 +341,7 @@
                   }
                 ],
                 "RuntimeQuery": "",
-                "State": "8a2bf421-f583-414c-94f2-2e852e346dd9INSERT INTO sensor_data (sensor_id, temperature, pressure, humidity, timestamp)\n    VALUES (?sensor_id, ?temperature, ?pressure, ?humidity, ?timestamp);",
+                "State": "ecc7e59c-1c47-4489-b2be-e4ce2153973eINSERT INTO sensor_data (sensor_id, temperature, pressure, humidity, timestamp)\n    VALUES (?sensor_id, ?temperature, ?pressure, ?humidity, ?timestamp);",
                 "input": {
                   "mapping": {
                     "values": [
@@ -505,7 +503,7 @@
                   }
                 ],
                 "RuntimeQuery": "",
-                "State": "2fe27678-f04b-4fe3-915d-03dfe2b92b68SELECT avg(temperature), sensor_id\nFROM sensor_data\nWHERE timestamp >= now() - interval '1 minutes'\nGROUP BY sensor_id;"
+                "State": "65a4eec8-adb8-4d36-b2b4-5735e6ef30d3SELECT avg(temperature), sensor_id\nFROM sensor_data\nWHERE timestamp >= now() - interval '1 minutes'\nGROUP BY sensor_id;"
               },
               "schemas": {
                 "input": {
@@ -550,7 +548,7 @@
                 "Server": "=$property[\"EMAIL.SERVER\"]",
                 "Port": "=$property[\"EMAIL.PORT\"]",
                 "Username": "localhost",
-                "Password": "SECRET:o8knBljN9/HzNVEy3HPud5Y=",
+                "Password": "SECRET:326kPOrMVZshWsYbPreLIfE=",
                 "Connection Security": "NONE",
                 "serverCertificate": "",
                 "sender": "",
@@ -649,7 +647,7 @@
             }
           }
         ],
-        "fe_metadata": "eyJTdGFydEFjdGl2aXR5Ijp7IngiOjcxLCJ5Ijo5M30sImZldGNoX2F2Z190ZW1wIjp7IngiOjIwNCwieSI6ODZ9LCJMb2dIaWdoVGVtcEFsZXJ0Ijp7IngiOjQ0NiwieSI6ODZ9LCJTZW5kTWFpbF9IaWdoVGVtcCI6eyJ4Ijo2ODMsInkiOjg4fSwiRG9Ob3RoaW5nIjp7IngiOjY0MSwieSI6MjA2fSwiTG9nQXZnVGVtcCI6eyJ4Ijo0NDQsInkiOjQ0NX0sIkxvZ0xvd1RlbXBBbGVydCI6eyJ4Ijo0NDUsInkiOjMzMH0sIlNlbmRNYWlsX0xvd1RlbXAiOnsieCI6NjgzLCJ5IjozMjZ9fQ==",
+        "fe_metadata": "eyJTdGFydEFjdGl2aXR5Ijp7IngiOjcxLCJ5Ijo5M30sImZldGNoX2F2Z190ZW1wIjp7IngiOjIwNCwieSI6ODZ9LCJMb2dIaWdoVGVtcEFsZXJ0Ijp7IngiOjQ0NiwieSI6ODZ9LCJTZW5kTWFpbF9IaWdoVGVtcCI6eyJ4Ijo3MTIsInkiOjg2fSwiRG9Ob3RoaW5nIjp7IngiOjY2MiwieSI6MjAyfSwiTG9nQXZnVGVtcCI6eyJ4Ijo0NDQsInkiOjQ0NX0sIkxvZ0xvd1RlbXBBbGVydCI6eyJ4Ijo0NDUsInkiOjMzMH0sIlNlbmRNYWlsX0xvd1RlbXAiOnsieCI6NzQxLCJ5IjozMzB9fQ==",
         "metadata": {
           "input": [],
           "output": [],
@@ -696,6 +694,7 @@
                 "enableASR": false,
                 "swagger": "",
                 "authorization": false,
+                "authorizationConn": "",
                 "serviceName": "",
                 "resourcePath": "",
                 "Method": "POST",
@@ -752,7 +751,7 @@
             }
           }
         ],
-        "fe_metadata": "eyJTdGFydEFjdGl2aXR5Ijp7IngiOjEwMCwieSI6MTAwfSwic2VuZFRvSW5mbHV4REIiOnsieCI6MzQyLCJ5Ijo4OX19",
+        "fe_metadata": "eyJTdGFydEFjdGl2aXR5Ijp7IngiOjEwMCwieSI6MTAwfSwic2VuZFRvSW5mbHV4REIiOnsieCI6MjMwLCJ5Ijo4OX19",
         "metadata": {
           "input": [
             {
@@ -808,7 +807,7 @@
     {
       "name": "PostgreSQL.k8s.Password",
       "type": "string",
-      "value": "SECRET:U9lhv0rIXWuHWRe2of6PY4TaOP6mY732"
+      "value": "SECRET:NwwfgnlCF3eTz5TVbmzYF1bKssrAzTCb"
     },
     {
       "name": "PostgreSQL.k8s.Maximum_Open_Connections",
@@ -858,7 +857,7 @@
     {
       "name": "EMAIL.PASSWORD",
       "type": "string",
-      "value": "SECRET:NK9tHF3wOYvptBbK+XeOo28="
+      "value": "SECRET:HZSTj903md4eQO9xzJoHgV4="
     },
     {
       "name": "EMAIL.isEmail",
@@ -876,6 +875,14 @@
       "type": "json",
       "value": "{\n    \"$schema\": \"http://json-schema.org/draft-04/schema#\",\n    \"type\": \"object\",\n    \"properties\": {\n        \"sensor\": {\n            \"type\": \"object\",\n            \"properties\": {\n                \"sensor_id\": {\n                    \"type\": \"string\"\n                },\n                \"temperature\": {\n                    \"type\": \"string\"\n                },\n                \"pressure\": {\n                    \"type\": \"string\"\n                },\n                \"humidity\": {\n                    \"type\": \"string\"\n                },\n                \"timestamp\": {\n                    \"type\": \"string\"\n                }\n            }\n        }\n    }\n}",
       "fe_metadata": "{\n    \"$schema\": \"http://json-schema.org/draft-04/schema#\",\n    \"type\": \"object\",\n    \"properties\": {\n        \"sensor\": {\n            \"type\": \"object\",\n            \"properties\": {\n                \"sensor_id\": {\n                    \"type\": \"string\"\n                },\n                \"temperature\": {\n                    \"type\": \"string\"\n                },\n                \"pressure\": {\n                    \"type\": \"string\"\n                },\n                \"humidity\": {\n                    \"type\": \"string\"\n                },\n                \"timestamp\": {\n                    \"type\": \"string\"\n                }\n            }\n        }\n    }\n}"
+    }
+  },
+  "specs": {
+    "adae8ef6": {
+      "id": "adae8ef6",
+      "name": "sensor",
+      "type": "gRPC",
+      "content": "c3ludGF4ID0gInByb3RvMyI7CgpwYWNrYWdlIHNlbnNvcnM7CgptZXNzYWdlIFNlbnNvckRhdGEgewogIHN0cmluZyBzZW5zb3JfaWQgPSAxOwogIGRvdWJsZSB0ZW1wZXJhdHVyZSA9IDI7CiAgZG91YmxlIHByZXNzdXJlID0gMzsKICBkb3VibGUgaHVtaWRpdHkgPSA0OwogIHN0cmluZyB0aW1lc3RhbXAgPSA1Owp9CgptZXNzYWdlIEVtcHR5IHt9CgpzZXJ2aWNlIFNlbnNvclNlcnZpY2UgewogIHJwYyBTZW5kVGVsZW1ldHJ5RGF0YSAoU2Vuc29yRGF0YSkgcmV0dXJucyAoRW1wdHkpIHt9Cn0="
     }
   },
   "connections": {

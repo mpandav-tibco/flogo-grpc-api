@@ -2,19 +2,17 @@
   "imports": [
     "github.com/project-flogo/flow",
     "github.com/project-flogo/contrib/activity/noop",
+    "github.com/tibco/flogo-general/src/app/General/activity/log",
     "github.com/project-flogo/flow/activity/subflow",
     "github.com/tibco/wi-postgres/src/app/PostgreSQL/activity/insert",
     "github.com/tibco/wi-postgres/src/app/PostgreSQL/activity/query",
-    "github.com/tibco/flogo-general/src/app/General/activity/log",
     "github.com/tibco/flogo-general/src/app/General/activity/sendmail",
-    "github.com/tibco/wi-postgres/src/app/PostgreSQL/activity/delete",
+    "github.com/tibco/flogo-general/src/app/General/activity/rest",
     "github.com/project-flogo/grpc/trigger/grpc",
     "github.com/tibco/flogo-general/src/app/General/trigger/timer",
-    "github.com/tibco/flogo-general/src/app/General/trigger/startuphook",
+    "github.com/project-flogo/contrib/function/string",
     "github.com/project-flogo/contrib/function/array",
     "github.com/project-flogo/contrib/function/coerce",
-    "github.com/project-flogo/contrib/function/string",
-    "github.com/project-flogo/contrib/function/datetime",
     "git.tibco.com/git/product/ipaas/wi-contrib.git/function/boolean",
     "github.com/tibco/wi-postgres/src/app/PostgreSQL/connector/connection"
   ],
@@ -37,6 +35,7 @@
           "content": "data:application/octet-stream;base64,c3ludGF4ID0gInByb3RvMyI7CgpwYWNrYWdlIHNlbnNvcnM7CgptZXNzYWdlIFNlbnNvckRhdGEgewogIHN0cmluZyBzZW5zb3JfaWQgPSAxOwogIGRvdWJsZSB0ZW1wZXJhdHVyZSA9IDI7CiAgZG91YmxlIHByZXNzdXJlID0gMzsKICBkb3VibGUgaHVtaWRpdHkgPSA0OwogIHN0cmluZyB0aW1lc3RhbXAgPSA1Owp9CgptZXNzYWdlIEVtcHR5IHt9CgpzZXJ2aWNlIFNlbnNvclNlcnZpY2UgewogIHJwYyBTZW5kVGVsZW1ldHJ5RGF0YSAoU2Vuc29yRGF0YSkgcmV0dXJucyAoRW1wdHkpIHt9Cn0="
         },
         "enableTLS": false,
+        "enableMTLS": false,
         "serverCert": "",
         "serverKey": ""
       },
@@ -68,16 +67,14 @@
               "data": {
                 "type": "json",
                 "value": "{\"type\":\"object\",\"properties\":{},\"required\":[]}",
-                "fe_metadata": "{\"type\":\"object\",\"properties\":{},\"required\":[]}",
-                "feSchemaMap": {}
+                "fe_metadata": "{\"type\":\"object\",\"properties\":{},\"required\":[]}"
               }
             },
             "output": {
               "params": {
                 "type": "json",
                 "value": "{\"type\":\"object\",\"properties\":{\"sensor_id\":{\"type\":\"string\"},\"temperature\":{\"type\":\"number\"},\"pressure\":{\"type\":\"number\"},\"humidity\":{\"type\":\"number\"},\"timestamp\":{\"type\":\"string\"}},\"required\":[]}",
-                "fe_metadata": "{\"type\":\"object\",\"properties\":{\"sensor_id\":{\"type\":\"string\"},\"temperature\":{\"type\":\"number\"},\"pressure\":{\"type\":\"number\"},\"humidity\":{\"type\":\"number\"},\"timestamp\":{\"type\":\"string\"}},\"required\":[]}",
-                "feSchemaMap": {}
+                "fe_metadata": "{\"type\":\"object\",\"properties\":{\"sensor_id\":{\"type\":\"string\"},\"temperature\":{\"type\":\"number\"},\"pressure\":{\"type\":\"number\"},\"humidity\":{\"type\":\"number\"},\"timestamp\":{\"type\":\"string\"}},\"required\":[]}"
               }
             }
           },
@@ -112,25 +109,6 @@
           "name": "Calculate_Avg_Temperatur"
         }
       ]
-    },
-    {
-      "ref": "#startuphook",
-      "name": "tibco-appstartup",
-      "description": "This trigger allows you to execute flows before other triggers in the application are started. This is useful in initializing application specific tasks.",
-      "settings": {},
-      "id": "App Startup Trigger",
-      "handlers": [
-        {
-          "description": "Clean up the Database Table",
-          "action": {
-            "ref": "github.com/project-flogo/flow",
-            "settings": {
-              "flowURI": "res://flow:onStartup"
-            }
-          },
-          "name": "onStartup"
-        }
-      ]
     }
   ],
   "resources": [
@@ -143,9 +121,23 @@
           {
             "id": 1,
             "from": "StartActivity",
+            "to": "LogSensorData",
+            "type": "label",
+            "label": "StartActivity to LogMessage"
+          },
+          {
+            "id": 2,
+            "from": "LogSensorData",
             "to": "InsertToDB",
             "type": "label",
-            "label": "StartActivity to InsertToDB"
+            "label": "LogMessage to StartaSubFlow"
+          },
+          {
+            "id": 3,
+            "from": "InsertToDB",
+            "to": "StartaSubFlow",
+            "type": "label",
+            "label": "InsertToDB to StartaSubFlow"
           }
         ],
         "tasks": [
@@ -158,9 +150,29 @@
             }
           },
           {
+            "id": "LogSensorData",
+            "name": "LogSensorData",
+            "description": "Simple Log Message Activity",
+            "activity": {
+              "ref": "#log",
+              "input": {
+                "Log Level": "INFO",
+                "flowInfo": false,
+                "message": "=string.concat(\"###### Sensor : \", $flow.params.sensor_id, \" Telemetry Data : \", string.tostring($flow.params))",
+                "logLevel": ""
+              }
+            }
+          },
+          {
             "id": "InsertToDB",
             "name": "InsertToDB",
             "description": "Simple SubFlow Activity",
+            "settings": {
+              "retryOnError": {
+                "count": 0,
+                "interval": 0
+              }
+            },
             "activity": {
               "ref": "#subflow",
               "settings": {
@@ -179,15 +191,50 @@
                   "input": {
                     "type": "json",
                     "value": "{\"$schema\":\"http://json-schema.org/draft-04/schema#\",\"type\":\"object\",\"properties\":{\"input\":{\"type\":\"object\",\"properties\":{\"sensor\":{\"type\":\"object\",\"properties\":{\"sensor_id\":{\"type\":\"string\"},\"temperature\":{\"type\":\"string\"},\"pressure\":{\"type\":\"string\"},\"humidity\":{\"type\":\"string\"},\"timestamp\":{\"type\":\"string\"}}}}}}}",
-                    "fe_metadata": "{\"$schema\":\"http://json-schema.org/draft-04/schema#\",\"type\":\"object\",\"properties\":{\"input\":{\"type\":\"object\",\"properties\":{\"sensor\":{\"type\":\"object\",\"properties\":{\"sensor_id\":{\"type\":\"string\"},\"temperature\":{\"type\":\"string\"},\"pressure\":{\"type\":\"string\"},\"humidity\":{\"type\":\"string\"},\"timestamp\":{\"type\":\"string\"}}}}}}}",
-                    "feSchemaMap": {}
+                    "fe_metadata": "{\"$schema\":\"http://json-schema.org/draft-04/schema#\",\"type\":\"object\",\"properties\":{\"input\":{\"type\":\"object\",\"properties\":{\"sensor\":{\"type\":\"object\",\"properties\":{\"sensor_id\":{\"type\":\"string\"},\"temperature\":{\"type\":\"string\"},\"pressure\":{\"type\":\"string\"},\"humidity\":{\"type\":\"string\"},\"timestamp\":{\"type\":\"string\"}}}}}}}"
                   }
                 }
+              },
+              "feSchemaMap": {}
+            }
+          },
+          {
+            "id": "StartaSubFlow",
+            "name": "StartaSubFlow",
+            "description": "Simple SubFlow Activity",
+            "settings": {
+              "retryOnError": {
+                "count": 0,
+                "interval": 0
               }
+            },
+            "activity": {
+              "ref": "#subflow",
+              "settings": {
+                "flowURI": "res://flow:Send_To_InFluxDB",
+                "detached": false
+              },
+              "input": {
+                "sensor_id": "=$flow.params.sensor_id",
+                "temperature": "=$flow.params.temperature",
+                "pressure": "=$flow.params.pressure",
+                "humidity": "=$flow.params.humidity",
+                "timestamp": "=$flow.params.timestamp"
+              },
+              "schemas": {
+                "input": {
+                  "input": {
+                    "type": "json",
+                    "value": "{\"$schema\":\"http://json-schema.org/draft-04/schema#\",\"type\":\"object\",\"properties\":{\"sensor_id\":{\"type\":\"string\"},\"temperature\":{\"type\":\"number\"},\"pressure\":{\"type\":\"number\"},\"humidity\":{\"type\":\"number\"},\"timestamp\":{\"type\":\"string\"}}}",
+                    "fe_metadata": "{\n    \"sensor_id\": \"sensor-123\",\n    \"temperature\": 24.614916499949821,\n    \"pressure\": 1020.50021794987,\n    \"humidity\": 49.379245208481379,\n    \"timestamp\": \"2025-01-31 22:25:16\"\n}"
+                  }
+                }
+              },
+              "feSchemaMap": {}
             }
           }
         ],
-        "fe_metadata": "eyJTdGFydEFjdGl2aXR5Ijp7IngiOjAsInkiOjE0fSwiSW5zZXJ0VG9EQiI6eyJ4IjoxOTUsInkiOjd9fQ==",
+        "fe_metadata": "eyJTdGFydEFjdGl2aXR5Ijp7IngiOjEwMCwieSI6MTAwfSwiTG9nU2Vuc29yRGF0YSI6eyJ4IjoyMjUsInkiOjg1fSwiSW5zZXJ0VG9EQiI6eyJ4Ijo0NDIsInkiOjg4fSwiU3RhcnRhU3ViRmxvdyI6eyJ4Ijo0NjIsInkiOjI3Mn19",
         "metadata": {
           "input": [
             {
@@ -296,7 +343,7 @@
                   }
                 ],
                 "RuntimeQuery": "",
-                "State": "a4c998c5-4b6f-4c0c-9a87-e9e09ca55944INSERT INTO sensor_data (sensor_id, temperature, pressure, humidity, timestamp)\n    VALUES (?sensor_id, ?temperature, ?pressure, ?humidity, ?timestamp);",
+                "State": "8a2bf421-f583-414c-94f2-2e852e346dd9INSERT INTO sensor_data (sensor_id, temperature, pressure, humidity, timestamp)\n    VALUES (?sensor_id, ?temperature, ?pressure, ?humidity, ?timestamp);",
                 "input": {
                   "mapping": {
                     "values": [
@@ -316,19 +363,18 @@
                   "input": {
                     "type": "json",
                     "value": "{\"$schema\":\"http://json-schema.org/draft-04/schema#\",\"type\":\"object\",\"definitions\":{},\"properties\":{\"values\":{\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{\"sensor_id\":{\"type\":\"string\"},\"temperature\":{\"type\":\"number\"},\"pressure\":{\"type\":\"number\"},\"humidity\":{\"type\":\"number\"},\"timestamp\":{\"type\":\"string\",\"format\":\"time\"}}}},\"parameters\":{\"type\":\"object\",\"properties\":{}}}}",
-                    "fe_metadata": "{\"$schema\":\"http://json-schema.org/draft-04/schema#\",\"type\":\"object\",\"definitions\":{},\"properties\":{\"values\":{\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{\"sensor_id\":{\"type\":\"string\"},\"temperature\":{\"type\":\"number\"},\"pressure\":{\"type\":\"number\"},\"humidity\":{\"type\":\"number\"},\"timestamp\":{\"type\":\"string\",\"format\":\"time\"}}}},\"parameters\":{\"type\":\"object\",\"properties\":{}}}}",
-                    "feSchemaMap": {}
+                    "fe_metadata": "{\"$schema\":\"http://json-schema.org/draft-04/schema#\",\"type\":\"object\",\"definitions\":{},\"properties\":{\"values\":{\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{\"sensor_id\":{\"type\":\"string\"},\"temperature\":{\"type\":\"number\"},\"pressure\":{\"type\":\"number\"},\"humidity\":{\"type\":\"number\"},\"timestamp\":{\"type\":\"string\",\"format\":\"time\"}}}},\"parameters\":{\"type\":\"object\",\"properties\":{}}}}"
                   }
                 },
                 "output": {
                   "Output": {
                     "type": "json",
                     "value": "{\"$schema\":\"http://json-schema.org/draft-04/schema#\",\"type\":\"object\",\"definitions\":{},\"properties\":{\"records\":{\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{}}}}}",
-                    "fe_metadata": "{\"$schema\":\"http://json-schema.org/draft-04/schema#\",\"type\":\"object\",\"definitions\":{},\"properties\":{\"records\":{\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{}}}}}",
-                    "feSchemaMap": {}
+                    "fe_metadata": "{\"$schema\":\"http://json-schema.org/draft-04/schema#\",\"type\":\"object\",\"definitions\":{},\"properties\":{\"records\":{\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{}}}}}"
                   }
                 }
-              }
+              },
+              "feSchemaMap": {}
             }
           }
         ],
@@ -367,7 +413,7 @@
             "to": "LogHighTempAlert",
             "type": "expression",
             "label": "high_temp_alert",
-            "value": "$activity[fetch_avg_temp].Output.records[0].avg > 25"
+            "value": "$activity[fetch_avg_temp].Output.records[0].avg > 30"
           },
           {
             "id": 3,
@@ -459,26 +505,25 @@
                   }
                 ],
                 "RuntimeQuery": "",
-                "State": "401773b1-b1fa-4ecc-8c49-4a53a9e4404bSELECT avg(temperature), sensor_id\nFROM sensor_data\nWHERE timestamp >= now() - interval '1 minutes'\nGROUP BY sensor_id;"
+                "State": "2fe27678-f04b-4fe3-915d-03dfe2b92b68SELECT avg(temperature), sensor_id\nFROM sensor_data\nWHERE timestamp >= now() - interval '1 minutes'\nGROUP BY sensor_id;"
               },
               "schemas": {
                 "input": {
                   "input": {
                     "type": "json",
                     "value": "{\"$schema\":\"http://json-schema.org/draft-04/schema#\",\"type\":\"object\",\"definitions\":{},\"properties\":{\"parameters\":{\"type\":\"object\",\"properties\":{}}}}",
-                    "fe_metadata": "{\"$schema\":\"http://json-schema.org/draft-04/schema#\",\"type\":\"object\",\"definitions\":{},\"properties\":{\"parameters\":{\"type\":\"object\",\"properties\":{}}}}",
-                    "feSchemaMap": {}
+                    "fe_metadata": "{\"$schema\":\"http://json-schema.org/draft-04/schema#\",\"type\":\"object\",\"definitions\":{},\"properties\":{\"parameters\":{\"type\":\"object\",\"properties\":{}}}}"
                   }
                 },
                 "output": {
                   "Output": {
                     "type": "json",
                     "value": "{\"$schema\":\"http://json-schema.org/draft-04/schema#\",\"type\":\"object\",\"definitions\":{},\"properties\":{\"records\":{\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{\"avg\":{\"type\":\"number\"},\"sensor_id\":{\"type\":\"string\"}}}}}}",
-                    "fe_metadata": "{\"$schema\":\"http://json-schema.org/draft-04/schema#\",\"type\":\"object\",\"definitions\":{},\"properties\":{\"records\":{\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{\"avg\":{\"type\":\"number\"},\"sensor_id\":{\"type\":\"string\"}}}}}}",
-                    "feSchemaMap": {}
+                    "fe_metadata": "{\"$schema\":\"http://json-schema.org/draft-04/schema#\",\"type\":\"object\",\"definitions\":{},\"properties\":{\"records\":{\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{\"avg\":{\"type\":\"number\"},\"sensor_id\":{\"type\":\"string\"}}}}}}"
                   }
                 }
-              }
+              },
+              "feSchemaMap": {}
             }
           },
           {
@@ -490,7 +535,7 @@
               "input": {
                 "Log Level": "INFO",
                 "flowInfo": false,
-                "message": "=string.concat(\"######## HIGH TEMPERATURE ALERT ######## \", \" AVERAGE TEMPERATURE FOR 5 min : HIGH - \", string.tostring($activity[fetch_avg_temp].Output.records[0].avg))",
+                "message": "=string.concat(\"######## HIGH TEMPERATURE ALERT ######## \", \"NORMAL AVERAGE TEMPERATURE FOR 5 min : HIGH - \", string.tostring($activity[fetch_avg_temp].Output.records[0].avg))",
                 "logLevel": ""
               }
             }
@@ -504,29 +549,28 @@
               "input": {
                 "Server": "=$property[\"EMAIL.SERVER\"]",
                 "Port": "=$property[\"EMAIL.PORT\"]",
-                "Username": "",
-                "Password": "",
+                "Username": "localhost",
+                "Password": "SECRET:o8knBljN9/HzNVEy3HPud5Y=",
                 "Connection Security": "NONE",
                 "serverCertificate": "",
-                "message_content_type": "text/html",
-                "sender": "alerts@demo.com",
-                "recipients": "admin@demo.com",
+                "sender": "",
+                "recipients": "",
                 "cc_recipients": "",
                 "bcc_recipients": "",
-                "reply_to": "DoNotReply@demo.com",
-                "subject": "=string.concat(\"High Temperature Alert - \",$activity[fetch_avg_temp].Output.records[0].sensor_id)",
-                "message": "=string.concat('<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><title>HIGH Temperature Alert</title></head><body><h1>HighTemperature Alert</h1><p>This email is to notify you of a high-temperature alert triggered by sensor <b>', $activity[fetch_avg_temp].Output.records[0].sensor_id, '</b>.</p><h2>Sensor Details:</h2><ul><li><b>Sensor ID:</b>',$activity[fetch_avg_temp].Output.records[0].sensor_id,  '</li><li><b>Temperature:</b>', $activity[fetch_avg_temp].Output.records[0].avg, '</li><li><b>Timestamp:</b>', datetime.currentDatetime(), '</li></ul><p>Please investigate the situation and take any necessary action.</p></body></html>')"
+                "reply_to": "",
+                "subject": "",
+                "message": ""
               },
               "schemas": {
                 "input": {
                   "attachments": {
                     "type": "json",
                     "value": "{\"$schema\":\"http://json-schema.org/draft-07/schema#\",\"items\":{\"properties\":{\"file\":{\"type\":\"string\"},\"filename\":{\"type\":\"string\"},\"base64EncodedContents\":{\"type\":\"boolean\"}},\"required\":[\"file\"],\"type\":\"object\"},\"type\":\"array\"}",
-                    "fe_metadata": "{\"$schema\":\"http://json-schema.org/draft-07/schema#\",\"items\":{\"properties\":{\"file\":{\"type\":\"string\"},\"filename\":{\"type\":\"string\"},\"base64EncodedContents\":{\"type\":\"boolean\"}},\"required\":[\"file\"],\"type\":\"object\"},\"type\":\"array\"}",
-                    "feSchemaMap": {}
+                    "fe_metadata": "{\"$schema\":\"http://json-schema.org/draft-07/schema#\",\"items\":{\"properties\":{\"file\":{\"type\":\"string\"},\"filename\":{\"type\":\"string\"},\"base64EncodedContents\":{\"type\":\"boolean\"}},\"required\":[\"file\"],\"type\":\"object\"},\"type\":\"array\"}"
                   }
                 }
-              }
+              },
+              "feSchemaMap": {}
             }
           },
           {
@@ -580,33 +624,32 @@
               "input": {
                 "Server": "=$property[\"EMAIL.SERVER\"]",
                 "Port": "=$property[\"EMAIL.PORT\"]",
-                "Username": "",
-                "Password": "",
-                "Connection Security": "NONE",
+                "Username": "=$property[\"EMAIL.USER\"]",
+                "Password": "=$property[\"EMAIL.PASSWORD\"]",
+                "Connection Security": "TLS",
                 "serverCertificate": "",
-                "message_content_type": "text/html",
-                "sender": "alerts@demo.com",
-                "recipients": "admin@demo.com",
+                "sender": "",
+                "recipients": "",
                 "cc_recipients": "",
                 "bcc_recipients": "",
-                "reply_to": "DoNotReply@demo.com",
-                "subject": "=string.concat(\" Low Temperature Alert - \",$activity[fetch_avg_temp].Output.records[0].sensor_id)",
-                "message": "=string.concat('<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><title>LOW Temperature Alert</title></head><body><h1>LOW Temperature Alert</h1><p>This email is to notify you of a low-temperature alert triggered by sensor <b>', $activity[fetch_avg_temp].Output.records[0].sensor_id, '</b>.</p><h2>Sensor Details:</h2><ul><li><b>Sensor ID:</b>',$activity[fetch_avg_temp].Output.records[0].sensor_id,  '</li><li><b>Temperature:</b>', $activity[fetch_avg_temp].Output.records[0].avg, '</li><li><b>Timestamp:</b>', datetime.currentDatetime(), '</li></ul><p>Please investigate the situation and take any necessary action.</p></body></html>')"
+                "reply_to": "",
+                "subject": "",
+                "message": ""
               },
               "schemas": {
                 "input": {
                   "attachments": {
                     "type": "json",
                     "value": "{\"$schema\":\"http://json-schema.org/draft-07/schema#\",\"items\":{\"properties\":{\"file\":{\"type\":\"string\"},\"filename\":{\"type\":\"string\"},\"base64EncodedContents\":{\"type\":\"boolean\"}},\"required\":[\"file\"],\"type\":\"object\"},\"type\":\"array\"}",
-                    "fe_metadata": "{\"$schema\":\"http://json-schema.org/draft-07/schema#\",\"items\":{\"properties\":{\"file\":{\"type\":\"string\"},\"filename\":{\"type\":\"string\"},\"base64EncodedContents\":{\"type\":\"boolean\"}},\"required\":[\"file\"],\"type\":\"object\"},\"type\":\"array\"}",
-                    "feSchemaMap": {}
+                    "fe_metadata": "{\"$schema\":\"http://json-schema.org/draft-07/schema#\",\"items\":{\"properties\":{\"file\":{\"type\":\"string\"},\"filename\":{\"type\":\"string\"},\"base64EncodedContents\":{\"type\":\"boolean\"}},\"required\":[\"file\"],\"type\":\"object\"},\"type\":\"array\"}"
                   }
                 }
-              }
+              },
+              "feSchemaMap": {}
             }
           }
         ],
-        "fe_metadata": "eyJTdGFydEFjdGl2aXR5Ijp7IngiOjcxLCJ5Ijo5M30sImZldGNoX2F2Z190ZW1wIjp7IngiOjIwNCwieSI6ODd9LCJMb2dIaWdoVGVtcEFsZXJ0Ijp7IngiOjQ0NSwieSI6ODh9LCJTZW5kTWFpbF9IaWdoVGVtcCI6eyJ4Ijo3MjYsInkiOjg4fSwiRG9Ob3RoaW5nIjp7IngiOjcxNSwieSI6MjA2fSwiTG9nQXZnVGVtcCI6eyJ4Ijo0NDQsInkiOjQ0NX0sIkxvZ0xvd1RlbXBBbGVydCI6eyJ4Ijo0NDUsInkiOjMzMH0sIlNlbmRNYWlsX0xvd1RlbXAiOnsieCI6NzMwLCJ5IjozMzB9fQ==",
+        "fe_metadata": "eyJTdGFydEFjdGl2aXR5Ijp7IngiOjcxLCJ5Ijo5M30sImZldGNoX2F2Z190ZW1wIjp7IngiOjIwNCwieSI6ODZ9LCJMb2dIaWdoVGVtcEFsZXJ0Ijp7IngiOjQ0NiwieSI6ODZ9LCJTZW5kTWFpbF9IaWdoVGVtcCI6eyJ4Ijo2ODMsInkiOjg4fSwiRG9Ob3RoaW5nIjp7IngiOjY0MSwieSI6MjA2fSwiTG9nQXZnVGVtcCI6eyJ4Ijo0NDQsInkiOjQ0NX0sIkxvZ0xvd1RlbXBBbGVydCI6eyJ4Ijo0NDUsInkiOjMzMH0sIlNlbmRNYWlsX0xvd1RlbXAiOnsieCI6NjgzLCJ5IjozMjZ9fQ==",
         "metadata": {
           "input": [],
           "output": [],
@@ -619,44 +662,13 @@
       "data": {
         "name": "Send_To_InFluxDB",
         "description": "Send Telemetry Data to Influx for Visualisation",
-        "links": [],
-        "tasks": [
-          {
-            "id": "StartActivity",
-            "name": "StartActivity",
-            "description": "NoOp Activity",
-            "activity": {
-              "ref": "#noop"
-            }
-          }
-        ],
-        "fe_metadata": "eyJTdGFydEFjdGl2aXR5Ijp7IngiOjEwMCwieSI6MTAwfX0=",
-        "metadata": {
-          "input": [],
-          "output": [],
-          "fe_metadata": {}
-        }
-      }
-    },
-    {
-      "id": "flow:onStartup",
-      "data": {
-        "name": "onStartup",
-        "description": "Clean up the Database Table",
         "links": [
           {
             "id": 1,
             "from": "StartActivity",
-            "to": "PostgreSQLDelete",
+            "to": "sendToInfluxDB",
             "type": "label",
-            "label": "StartActivity to PostgreSQLDelete"
-          },
-          {
-            "id": 2,
-            "from": "PostgreSQLDelete",
-            "to": "LogMessage",
-            "type": "label",
-            "label": "PostgreSQLDelete to LogMessage"
+            "label": "StartActivity to sendToInfluxDB"
           }
         ],
         "tasks": [
@@ -669,9 +681,9 @@
             }
           },
           {
-            "id": "PostgreSQLDelete",
-            "name": "PostgreSQLDelete",
-            "description": "This activity executes delete on a PostgreSQL database",
+            "id": "sendToInfluxDB",
+            "name": "sendToInfluxDB",
+            "description": "Simple REST Activity",
             "settings": {
               "retryOnError": {
                 "count": 0,
@@ -679,57 +691,95 @@
               }
             },
             "activity": {
-              "ref": "#delete",
+              "ref": "#rest",
               "input": {
-                "Connection": "conn://d06566b8-8256-46c2-b205-8b7bbe840db8",
-                "QueryName": "",
-                "Schema": "public",
-                "Query": "TRUNCATE TABLE sensor_data;",
-                "manualmode": false,
-                "RuntimeQuery": "",
-                "Fields": [],
-                "State": "133166f2-2b43-46ea-a5b1-7e895a20350fTRUNCATE TABLE sensor_data;"
+                "enableASR": false,
+                "swagger": "",
+                "authorization": false,
+                "serviceName": "",
+                "resourcePath": "",
+                "Method": "POST",
+                "Uri": "=$property[\"InfluxDB.writeAPI\"]",
+                "requestType": "application/x-www-form-urlencoded",
+                "Use certificate for verification": false,
+                "mutualAuth": false,
+                "Client Certificate": "",
+                "Client Key": "",
+                "Server Certificate": "",
+                "disableKeepAlives": false,
+                "Timeout": 0,
+                "proxy": "",
+                "host": "",
+                "headers": {
+                  "mapping": {
+                    "Authorization": "Token uF9p17Rip5uClDVq6JKBmpoX9em_rfF50CK-63taNpHi2CZ431-CBttUnINxir_lTnZl-QWfBJbRVaHRAxIzMQ==",
+                    "Content-Type": "text/plain; charset=utf-8"
+                  }
+                },
+                "body": {
+                  "mapping": {
+                    "data": "sensor_data,sensor_id=sensor-123 temperature=24.614916499949821,pressure=1020.50021794987,humidity=49.379245208481379 1738520188"
+                  }
+                }
+              },
+              "output": {
+                "configureResponseCodes": false,
+                "responseType": "application/json",
+                "responseOutput": "JSON Object"
               },
               "schemas": {
                 "input": {
-                  "input": {
+                  "headers": {
                     "type": "json",
-                    "value": "{\"$schema\":\"http://json-schema.org/draft-04/schema#\",\"type\":\"object\",\"definitions\":{},\"properties\":{\"parameters\":{\"type\":\"object\",\"properties\":{}}}}",
-                    "fe_metadata": "{\"$schema\":\"http://json-schema.org/draft-04/schema#\",\"type\":\"object\",\"definitions\":{},\"properties\":{\"parameters\":{\"type\":\"object\",\"properties\":{}}}}",
-                    "feSchemaMap": {}
+                    "value": "{\"type\":\"object\",\"properties\":{\"Authorization\":{\"type\":\"string\"},\"Accept\":{\"type\":\"string\",\"visible\":false},\"Accept-Charset\":{\"type\":\"string\",\"visible\":false},\"Accept-Encoding\":{\"type\":\"string\",\"visible\":false},\"Content-Type\":{\"type\":\"string\",\"visible\":false},\"Content-Length\":{\"type\":\"string\",\"visible\":false},\"Connection\":{\"type\":\"string\",\"visible\":false},\"Cookie\":{\"type\":\"string\",\"visible\":false},\"Pragma\":{\"type\":\"string\",\"visible\":false}},\"required\":[]}",
+                    "fe_metadata": "[{\"parameterName\":\"Authorization\",\"type\":\"string\",\"repeating\":\"\",\"required\":\"\"},{\"parameterName\":\"Accept\",\"type\":\"string\",\"repeating\":\"false\",\"required\":\"false\",\"visible\":false},{\"parameterName\":\"Accept-Charset\",\"type\":\"string\",\"repeating\":\"false\",\"required\":\"false\",\"visible\":false},{\"parameterName\":\"Accept-Encoding\",\"type\":\"string\",\"repeating\":\"false\",\"required\":\"false\",\"visible\":false},{\"parameterName\":\"Content-Type\",\"type\":\"string\",\"repeating\":\"false\",\"required\":\"false\",\"visible\":false},{\"parameterName\":\"Content-Length\",\"type\":\"string\",\"repeating\":\"false\",\"required\":\"false\",\"visible\":false},{\"parameterName\":\"Connection\",\"type\":\"string\",\"repeating\":\"false\",\"required\":\"false\",\"visible\":false},{\"parameterName\":\"Cookie\",\"type\":\"string\",\"repeating\":\"false\",\"required\":\"false\",\"visible\":false},{\"parameterName\":\"Pragma\",\"type\":\"string\",\"repeating\":\"false\",\"required\":\"false\",\"visible\":false}]"
+                  },
+                  "body": {
+                    "type": "json",
+                    "value": "{\n  \"$schema\": \"http://json-schema.org/draft-07/schema#\",\n  \"properties\": {\n    \"data\": {\n      \"type\": \"string\"\n    }\n  },\n  \"type\": \"object\"\n}",
+                    "fe_metadata": "{\n  \"$schema\": \"http://json-schema.org/draft-07/schema#\",\n  \"properties\": {\n    \"data\": {\n      \"type\": \"string\"\n    }\n  },\n  \"type\": \"object\"\n}"
                   }
                 },
                 "output": {
-                  "Output": {
+                  "headers": {
                     "type": "json",
-                    "value": "{\"type\":\"object\",\"properties\":{\"rowsAffected\":{\"type\":\"int\"}}}",
-                    "fe_metadata": "{\"type\":\"object\",\"properties\":{\"rowsAffected\":{\"type\":\"int\"}}}",
-                    "feSchemaMap": {}
+                    "value": "{\"type\":\"object\",\"properties\":{\"Accept\":{\"type\":\"string\",\"visible\":false},\"Accept-Charset\":{\"type\":\"string\",\"visible\":false},\"Accept-Encoding\":{\"type\":\"string\",\"visible\":false},\"Content-Type\":{\"type\":\"string\",\"visible\":false},\"Content-Length\":{\"type\":\"string\",\"visible\":false},\"Connection\":{\"type\":\"string\",\"visible\":false},\"Cookie\":{\"type\":\"string\",\"visible\":false},\"Pragma\":{\"type\":\"string\",\"visible\":false},\"Set-Cookie\":{\"type\":\"string\",\"visible\":false}},\"required\":[]}",
+                    "fe_metadata": "[{\"parameterName\":\"Accept\",\"type\":\"string\",\"repeating\":\"false\",\"required\":\"false\",\"visible\":false},{\"parameterName\":\"Accept-Charset\",\"type\":\"string\",\"repeating\":\"false\",\"required\":\"false\",\"visible\":false},{\"parameterName\":\"Accept-Encoding\",\"type\":\"string\",\"repeating\":\"false\",\"required\":\"false\",\"visible\":false},{\"parameterName\":\"Content-Type\",\"type\":\"string\",\"repeating\":\"false\",\"required\":\"false\",\"visible\":false},{\"parameterName\":\"Content-Length\",\"type\":\"string\",\"repeating\":\"false\",\"required\":\"false\",\"visible\":false},{\"parameterName\":\"Connection\",\"type\":\"string\",\"repeating\":\"false\",\"required\":\"false\",\"visible\":false},{\"parameterName\":\"Cookie\",\"type\":\"string\",\"repeating\":\"false\",\"required\":\"false\",\"visible\":false},{\"parameterName\":\"Pragma\",\"type\":\"string\",\"repeating\":\"false\",\"required\":\"false\",\"visible\":false},{\"parameterName\":\"Set-Cookie\",\"type\":\"string\",\"repeating\":\"false\",\"required\":\"false\",\"visible\":false}]"
                   }
                 }
-              }
-            }
-          },
-          {
-            "id": "LogMessage",
-            "name": "LogMessage",
-            "description": "Simple Log Message Activity",
-            "activity": {
-              "ref": "#log",
-              "input": {
-                "Log Level": "INFO",
-                "flowInfo": false,
-                "message": "##### AVERAGE THRESHOLD TEMPERATURE : HIGH = 30 AND LOW = 5 ######",
-                "logLevel": ""
-              }
+              },
+              "feSchemaMap": {}
             }
           }
         ],
-        "fe_metadata": "eyJTdGFydEFjdGl2aXR5Ijp7IngiOjEwMCwieSI6MTAwfSwiUG9zdGdyZVNRTERlbGV0ZSI6eyJ4IjoyNjYsInkiOjg3fSwiTG9nTWVzc2FnZSI6eyJ4Ijo1MDIsInkiOjg5fX0=",
+        "fe_metadata": "eyJTdGFydEFjdGl2aXR5Ijp7IngiOjEwMCwieSI6MTAwfSwic2VuZFRvSW5mbHV4REIiOnsieCI6MzQyLCJ5Ijo4OX19",
         "metadata": {
-          "input": [],
+          "input": [
+            {
+              "name": "sensor_id",
+              "type": "string"
+            },
+            {
+              "name": "temperature",
+              "type": "float64"
+            },
+            {
+              "name": "pressure",
+              "type": "float64"
+            },
+            {
+              "name": "humidity",
+              "type": "float64"
+            },
+            {
+              "name": "timestamp",
+              "type": "string"
+            }
+          ],
           "output": [],
-          "fe_metadata": {}
+          "fe_metadata": {
+            "input": "{\n    \"sensor_id\": \"sensor-123\",\n    \"temperature\": 24.614916499949821,\n    \"pressure\": 1020.50021794987,\n    \"humidity\": 49.379245208481379,\n    \"timestamp\": \"2025-01-31 22:25:16\"\n}"
+          }
         }
       }
     }
@@ -758,7 +808,7 @@
     {
       "name": "PostgreSQL.k8s.Password",
       "type": "string",
-      "value": "SECRET:RO8FrVLizthVncs637KDMzTuW1jlR/6M"
+      "value": "SECRET:U9lhv0rIXWuHWRe2of6PY4TaOP6mY732"
     },
     {
       "name": "PostgreSQL.k8s.Maximum_Open_Connections",
@@ -808,12 +858,17 @@
     {
       "name": "EMAIL.PASSWORD",
       "type": "string",
-      "value": "SECRET:J4kgh3CHmKJis8QzIKQ6/Mk="
+      "value": "SECRET:NK9tHF3wOYvptBbK+XeOo28="
     },
     {
       "name": "EMAIL.isEmail",
       "type": "boolean",
-      "value": true
+      "value": false
+    },
+    {
+      "name": "InfluxDB.writeAPI",
+      "type": "string",
+      "value": "https://influxdb.localhost.dataplanes.pro/api/v2/write?bucket=tibco&org=tibco"
     }
   ],
   "schemas": {
@@ -853,7 +908,7 @@
       }
     }
   },
-  "contrib": "W3sicmVmIjoiZ2l0aHViLmNvbS90aWJjby93aS1wb3N0Z3Jlcy9zcmMvYXBwL1Bvc3RncmVTUUwiLCJpZCI6IlBvc3RncmVTUUwiLCJ2ZXJzaW9uIjoiMi43LjEiLCJ0YWciOiIyLjcuMS1iMDEiLCJuYW1lIjoiUG9zdGdyZVNRTCIsInMzbG9jYXRpb24iOiJUaWJjby9Qb3N0Z3JlU1FMIiwiaXNVc2VyRXh0ZW5zaW9uIjpmYWxzZX0seyJyZWYiOiJnaXRodWIuY29tL3RpYmNvL2Zsb2dvLWdlbmVyYWwvc3JjL2FwcC9HZW5lcmFsIiwiaWQiOiJHZW5lcmFsIiwidmVyc2lvbiI6IjEuNi4yIiwidGFnIjoiMS42LjItYjAyIiwibmFtZSI6IkdlbmVyYWwiLCJzM2xvY2F0aW9uIjoiVGliY28vR2VuZXJhbCIsImlzVXNlckV4dGVuc2lvbiI6ZmFsc2V9XQ==",
+  "contrib": "W3sicmVmIjoiZ2l0aHViLmNvbS90aWJjby9mbG9nby1nZW5lcmFsL3NyYy9hcHAvR2VuZXJhbCIsImlkIjoiR2VuZXJhbCIsInZlcnNpb24iOiIxLjYuNCIsInRhZyI6IjEuNi40LWIwMiIsIm5hbWUiOiJHZW5lcmFsIiwiczNsb2NhdGlvbiI6IlRpYmNvL0dlbmVyYWwiLCJpc1VzZXJFeHRlbnNpb24iOmZhbHNlfSx7InJlZiI6ImdpdGh1Yi5jb20vdGliY28vd2ktcG9zdGdyZXMvc3JjL2FwcC9Qb3N0Z3JlU1FMIiwiaWQiOiJQb3N0Z3JlU1FMIiwidmVyc2lvbiI6IjIuNy4xIiwidGFnIjoiMi43LjEtYjAxIiwibmFtZSI6IlBvc3RncmVTUUwiLCJzM2xvY2F0aW9uIjoiVGliY28vUG9zdGdyZVNRTCIsImlzVXNlckV4dGVuc2lvbiI6ZmFsc2V9XQ==",
   "metadata": {
     "endpoints": [
       {
@@ -863,6 +918,6 @@
         "type": "public"
       }
     ],
-    "flogoVersion": "2.25.1"
+    "flogoVersion": "2.25.3"
   }
 }

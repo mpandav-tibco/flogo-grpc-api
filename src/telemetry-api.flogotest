@@ -22,11 +22,18 @@
         }
       }
     },
-    "onStartup:Tester": {
+    "Send_To_InFluxDB:Tester": {
       "name": "Tester",
-      "flowId": "flow:onStartup",
-      "flowName": "onStartup",
-      "disabled": false
+      "flowId": "flow:Send_To_InFluxDB",
+      "flowName": "Send_To_InFluxDB",
+      "disabled": false,
+      "flowInputs": {
+        "sensor_id": "sensor-123",
+        "temperature": 24.61491649994982,
+        "pressure": 1020.50021794987,
+        "humidity": 49.37924520848138,
+        "timestamp": "2025-01-31 22:25:16"
+      }
     }
   },
   "type": "flogo:unittest",
